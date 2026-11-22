@@ -1,0 +1,77 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'"><title>Carbon Balance Lab</title><style>
+:root{color-scheme:light;--ink:#251f21;--muted:#585254;--teal:#558575;--rule:#eae9ea;--sand:#f4efec}*{box-sizing:border-box}body{margin:0;background:var(--sand);color:var(--ink);font:16px/1.7 system-ui,sans-serif}main{max-width:1000px;margin:auto;padding:24px;background:white;min-height:100vh}h1{font-weight:500;font-size:30px;margin:0}h2{font-size:22px;margin-top:32px}p{margin-block:12px}button{font:inherit;cursor:pointer;border:1px solid var(--rule);border-radius:4px;padding:10px 14px;background:white;min-height:44px;color:var(--ink)}button:hover{background:var(--sand)}button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--teal);outline-offset:2px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-block:16px}.grid{display:grid;gap:16px}.field{display:flex;flex-direction:column;gap:4px;min-width:0}.field span:first-child{font-weight:600}.unit,small{font-size:13px;color:var(--muted)}input,textarea{width:100%;font:inherit;min-height:46px;padding:10px;border:1px solid var(--rule);border-radius:4px;background:white;color:var(--ink)}textarea{font-family:monospace;font-size:13px}.notice{padding:16px;background:var(--sand);border-radius:8px;margin-block:18px}.result{border-bottom:1px solid var(--rule);padding-block:12px}.result strong{display:block;font-size:24px;font-weight:600;color:var(--teal);overflow-wrap:anywhere;text-align:start}.error{color:#b6182c}pre{background:var(--sand);padding:14px;white-space:pre-wrap;overflow-wrap:anywhere;max-height:400px;overflow:auto}a{color:var(--teal)}.eq{text-align:center;font-size:22px;padding:18px 0}footer{margin-top:32px;font-size:13px;color:var(--muted)}@media(min-width:650px){main{padding:36px}.grid{grid-template-columns:1fr 1fr}}
+</style></head><body><main><h1>Carbon Balance Lab</h1><p id="intro"></p><button id="lang" type="button">English</button><div id="scope" class="notice"></div><h2 id="input-title"></h2><p id="basis"></p><div class="actions"><button id="demo" type="button"></button><button id="limited" type="button"></button><button id="zero" type="button"></button></div><div id="fields" class="grid"></div><p id="energy" class="unit"></p><h2 id="result-title"></h2><p id="error" class="error" role="alert"></p><div id="limiting" class="notice"></div><div id="results" class="grid" aria-live="polite"></div><p id="closure" class="unit"></p><div id="boundary" class="notice"></div><h2 id="save-title"></h2><p id="state-note"></p><div class="actions"><button id="export" type="button"></button><button id="csv" type="button"></button></div><pre id="json" dir="ltr" hidden></pre><label class="field"><span id="import-label"></span><textarea id="scenario" dir="ltr" rows="6" aria-label="Scenario JSON"></textarea></label><div class="actions"><button id="load" type="button"></button></div><p id="import-error" class="error" role="alert"></p><h2 id="model-title"></h2><div class="eq" dir="ltr">CO₂ + 3 H₂ → CH₃OH + H₂O</div><p id="equations"></p><p id="weights"></p><p id="exercise"></p><div id="oss" class="notice"></div><h2 id="sources-title"></h2><p><a href="https://www.netl.doe.gov/research/carbon-management/energy-systems/gasification/gasifipedia/methanol" target="_blank" rel="noopener noreferrer">NETL: methanol reaction chemistry</a></p><p><a href="https://webbook.nist.gov/cgi/cbook.cgi?Name=carbon+dioxide" target="_blank" rel="noopener noreferrer">NIST: CO₂</a> · <a href="https://webbook.nist.gov/cgi/cbook.cgi?Name=H2" target="_blank" rel="noopener noreferrer">H₂</a> · <a href="https://webbook.nist.gov/cgi/cbook.cgi?Name=Methanol" target="_blank" rel="noopener noreferrer">CH₃OH</a> · <a href="https://webbook.nist.gov/cgi/cbook.cgi?Name=water" target="_blank" rel="noopener noreferrer">H₂O</a></p><footer>v0.1.0 · MIT · Educational first release · 22 November 2026</footer></main><script type="module">
+/** Carbon Balance Lab v0.1.0, MIT. All flows kg/h unless named otherwise. */
+const MW = Object.freeze({CO2:44.009,H2:2.016,MeOH:32.042,H2O:18.015});
+const FIELDS = [
+ ['feed','CO₂ الداخل فقط','CO2 feed','kg/h',0,1e9],
+ ['capture','نسبة التقاط CO₂','Capture fraction','%',0,100],
+ ['conversion','التحويل الكلي المفترض للميثانول','Assumed overall conversion','%',0,100],
+ ['hydrogen','الهيدروجين المتاح','Available H2','kg/h',0,1e9],
+ ['hours','ساعات التشغيل السنوية','Annual operating hours','h/year',0,8784],
+ ['electricity','كهرباء الالتقاط فقط','Capture electricity intensity','kWh/t CO2 captured',0,1e6],
+ ['grid','معامل انبعاثات الكهرباء','Electricity emissions factor','kg CO2e/kWh',0,100]
+];
+const DEMO=Object.freeze({feed:1000,capture:90,conversion:80,hydrogen:120,hours:8000,electricity:0,grid:0});
+const PRESETS=Object.freeze({demo:DEMO,limited:{...DEMO,hydrogen:50},zero:{...DEMO,capture:0}});
+function validate(input){
+ if(!input || typeof input!=='object' || Array.isArray(input)) throw new Error('Scenario must be an object.');
+ const out={};
+ for(const [key,,label,,min,max] of FIELDS){
+  const raw=input[key];
+  if((typeof raw!=='number' && typeof raw!=='string') || (typeof raw==='string' && raw.trim()==='')) throw new Error(`${label}: enter a number (${min} to ${max}).`);
+  const value=Number(raw);
+  if(!Number.isFinite(value)||value<min||value>max) throw new Error(`${label}: enter a number (${min} to ${max}).`);
+  out[key]=value;
+ }
+ return out;
+}
+function calculate(input){
+ const x=validate(input);
+ const captured=x.feed*x.capture/100;
+ const targetCO2=captured*x.conversion/100;
+ const extent=Math.min(targetCO2/MW.CO2,x.hydrogen/(3*MW.H2));
+ const co2Used=extent*MW.CO2, h2Used=extent*3*MW.H2;
+ const methanol=extent*MW.MeOH, water=extent*MW.H2O;
+ const uncaptured=x.feed-captured, unusedCO2=Math.max(0,captured-co2Used), unusedH2=Math.max(0,x.hydrogen-h2Used);
+ const capturePower=captured/1000*x.electricity;
+ const utilityEmissions=capturePower*x.grid;
+ const closure=x.feed+x.hydrogen-(uncaptured+unusedCO2+unusedH2+methanol+water);
+ return {captured,uncaptured,targetCO2,co2Used,h2Used,methanol,water,unusedCO2,unusedH2,capturePower,utilityEmissions,
+ annualMethanol:methanol*x.hours/1000,annualCaptured:captured*x.hours/1000,annualUtility:utilityEmissions*x.hours/1000,
+ h2ForTarget:targetCO2/MW.CO2*3*MW.H2,hydrogenLimited:x.hydrogen+1e-10<targetCO2/MW.CO2*3*MW.H2,closure};
+}
+function toCSV(input){
+ const x=validate(input),r=calculate(x);
+ return ['kind,metric,value,unit',...FIELDS.map(([k,,,unit])=>`input,${k},${x[k]},${unit}`),
+ ...Object.entries(r).map(([k,v])=>`output,${k},${v},${k==='hydrogenLimited'?'boolean':k==='capturePower'?'kW':k.startsWith('annual')?'t/year':'kg/h'}`)].join('\n');
+}
+function parseScenario(text){
+ if(typeof text!=='string'||text.length>20000) throw new Error('Paste a scenario JSON object under 20 KB.');
+ let obj;try{obj=JSON.parse(text);}catch{throw new Error('Invalid JSON. Paste the full scenario object.');}
+ return validate(obj);
+}
+
+let en=false,inputs={...DEMO};
+const $=id=>document.getElementById(id),t=(ar,eng)=>en?eng:ar;
+const outputs=[['captured','CO₂ الملتقط','Captured CO2','kg/h'],['uncaptured','CO₂ غير الملتقط','Uncaptured CO2','kg/h'],['methanol','ميثانول نظري','Ideal methanol','kg/h'],['water','ماء ناتج نظري','Ideal water','kg/h'],['h2Used','هيدروجين مستهلك','H2 consumed','kg/h'],['h2ForTarget','الهيدروجين المطلوب للهدف','H2 needed for target','kg/h'],['unusedCO2','CO₂ ملتقط غير متفاعل','Unreacted captured CO2','kg/h'],['unusedH2','هيدروجين غير متفاعل','Unreacted H2','kg/h'],['annualMethanol','ميثانول سنوي نظري','Ideal annual methanol','t/year'],['annualCaptured','CO₂ ملتقط سنويًا','Annual captured CO2','t/year'],['capturePower','قدرة كهرباء الالتقاط فقط','Capture electricity only','kW'],['utilityEmissions','انبعاثات كهرباء الالتقاط فقط','Capture electricity emissions only','kg CO2e/h'],['annualUtility','انبعاثات كهرباء الالتقاط سنويًا','Annual capture electricity emissions','t CO2e/year']];
+function draw(){
+ document.documentElement.lang=en?'en':'ar';document.documentElement.dir=en?'ltr':'rtl';$('lang').textContent=en?'العربية':'English';
+ const content={intro:t('معمل مبسّط لموازنة كتلة التقاط الكربون وتحويله نظريًا لميثانول.','A simple mass-balance lab for CO2 capture and ideal methanol production.'),scope:t('أداة تعليمية، مش محاكاة مصنع. الأرقام أمثلة صناعية افتراضية، مش بيانات بحثية. لا يشمل اتزان التفاعل أو الحركية أو المذيب أو إصلاح الجليسرول، ولا يغني عن Aspen أو مراجعة مهندس.','Educational tool, not a plant simulation. Defaults are synthetic examples, not research data. No equilibrium, kinetics, solvent model or glycerol reforming. Not a replacement for Aspen or engineering review.'),'input-title':t('١ · جرّب سيناريو','1 · Try a scenario'),basis:t('ادخل كتلة CO₂ نفسه، مش غاز المداخن كله. استخدم النقطة للكسور. التحويل افتراض إجمالي وليس تحويل المرور الواحد.','Enter CO2 mass flow, not total flue gas. Use a decimal point. Conversion is an assumed overall fraction, not single-pass conversion.'),demo:t('المثال الأساسي / إعادة ضبط','Base example / reset'),limited:t('هيدروجين أقل','Less hydrogen'),zero:t('بدون التقاط','No capture'),energy:t('الكهرباء ومعامل الانبعاثات افتراضيًا صفر لعدم وجود بيانات، مش لأن العملية لا تحتاج طاقة. أدخل قيمك الموثقة.','Electricity and emissions factor default to zero because data are absent, not because demand is zero. Enter documented values.'),'result-title':t('٢ · النتائج المباشرة','2 · Live results'),boundary:t('الالتقاط ليس خفضًا صافيًا للانبعاثات. الحساب يشمل كهرباء الالتقاط فقط، ولا يشمل إنتاج الهيدروجين أو الحرارة أو الضغط أو بقية المصنع أو دورة الحياة أو مصير الميثانول. CO₂ غير المتفاعل ليس مخزّنًا تلقائيًا. لا تستخدم النتائج كشهادة خفض انبعاثات.','Captured CO2 is not net avoided emissions. Only capture electricity emissions are shown. Hydrogen production, heat, compression, other plant operations, lifecycle and methanol end use are excluded. Unreacted CO2 is not automatically stored. Do not use this for emissions-reduction claims.'),'save-title':t('٣ · احفظ أو حمّل المدخلات','3 · Save or restore inputs'),'state-note':t('المدخلات مؤقتة وتضيع عند إعادة تحميل الصفحة. انسخ JSON لإعادة استخدامه. الحاسبة لا تتصل بالشبكة.','Inputs reset on reload. Copy scenario JSON to reuse it. The calculator makes no network requests.'),export:t('عرض JSON للحفظ','Show scenario JSON'),csv:t('تنزيل النتائج CSV','Download results CSV'),'import-label':t('الصق JSON من تصدير سابق','Paste JSON from a previous export'),load:t('تحميل المدخلات','Load inputs'),'model-title':t('افهم الحساب','Understand the calculation'),equations:t('الملتقط = الداخل × نسبة الالتقاط. هدف التفاعل = الملتقط × التحويل المفترض. مقدار التفاعل بالكيلومول/ساعة = الأقل بين هدف CO₂ ÷ 44.009 والهيدروجين ÷ 6.048. الميثانول = مقدار التفاعل × 32.042 والماء = مقدار التفاعل × 18.015. الأطنان السنوية = الكجم/ساعة × ساعات التشغيل ÷ 1000. قدرة الكهرباء = الملتقط ÷ 1000 × كثافة الكهرباء، وانبعاثاتها = القدرة × معامل الانبعاثات.','Captured = feed × capture fraction. Target = captured × assumed conversion fraction. Extent (kmol/h) = min(target CO2 / 44.009, H2 / 6.048). Methanol = extent × 32.042; water = extent × 18.015. Annual tonnes = hourly kg × hours / 1000. Capture power = captured / 1000 × electricity intensity; its emissions = power × emissions factor.'),weights:t('الكتل المولية متسقة باستخدام أوزان ذرية مقربة C=12.011 وH=1.008 وO=15.999، وقريبة من NIST وليست نقلًا لكل خاناتها. الانتقائية المفترضة للتفاعل 100٪؛ لا يوجد نموذج نقاوة أو فصل منتجات.','Molar masses use consistent rounded atomic weights C=12.011, H=1.008, O=15.999. They approximate NIST values rather than copying all digits. Selectivity to the displayed reaction is 100%; no purity or product separation model is included.'),exercise:t('تمرين: بدّل لهيدروجين أقل وشوف ليه الميثانول قل رغم ثبات الالتقاط. بعدين زوّد الالتقاط والهيدروجين ثابت.','Exercise: choose Less hydrogen and explain why methanol falls at unchanged capture. Then increase capture with hydrogen fixed.'),oss:t('نسخة أولى بمساعدة الذكاء الاصطناعي. افهم وراجع الكود قبل عرضه كعمل تقني لك. لم يُنشر مستودع أو يُقدّم طلب، ولا توجد أرقام استخدام أو مساهمات مُختلقة أو ضمانات قبول. راجع README وMODEL وCONTRIBUTING.','AI-assisted first release. Understand and review the code before presenting it as your technical work. No repository or application has been created, no contribution or usage metrics are asserted, and acceptance is not guaranteed. Read README, MODEL and CONTRIBUTING.'),'sources-title':t('المراجع العلمية','Technical references')};
+ for(const [id,text]of Object.entries(content))$(id).textContent=text;
+ $('fields').replaceChildren();
+ for(const [key,ar,eng,unit,min,max]of FIELDS){const label=document.createElement('label');label.className='field';const name=document.createElement('span');name.textContent=en?eng:ar;const u=document.createElement('span');u.className='unit';u.dir='ltr';u.textContent=unit;const input=document.createElement('input');input.type='number';input.inputMode='decimal';input.min=min;input.max=max;input.step='any';input.dir='ltr';input.value=inputs[key];input.setAttribute('aria-label',eng);input.addEventListener('input',()=>{inputs[key]=input.value;$('json').hidden=true;update();});label.append(name,u,input);$('fields').append(label);}update();
+}
+function update(){
+ $('results').replaceChildren();$('json').hidden=true;
+ try{const r=calculate(inputs);$('error').textContent='';$('limiting').hidden=false;$('limiting').textContent=r.hydrogenLimited?t('الهيدروجين هو القيد. النتائج تتوقف عند المتاح منه.','Hydrogen is limiting. Output is capped by available H2.'):t('الهيدروجين يكفي للهدف المفترض.','Enough hydrogen for the assumed target.');
+ for(const[key,ar,eng,unit]of outputs){const box=document.createElement('div');box.className='result';const label=document.createElement('div');label.textContent=en?eng:ar;const value=document.createElement('strong');value.dir='ltr';value.textContent=new Intl.NumberFormat('en-US',{maximumFractionDigits:3}).format(r[key])+' '+unit;box.append(label,value);$('results').append(box);}$('closure').textContent=t('فرق إغلاق موازنة الكتلة: ','Mass-balance closure residual: ')+r.closure.toExponential(2)+' kg/h';$('csv').disabled=false;$('export').disabled=false;
+ }catch(e){$('error').textContent=e.message;$('limiting').hidden=true;$('closure').textContent='';$('csv').disabled=true;$('export').disabled=true;}
+}
+$('lang').onclick=()=>{en=!en;draw();};for(const key of Object.keys(PRESETS))$(key).onclick=()=>{inputs={...PRESETS[key]};$('import-error').textContent='';draw();};
+$('load').onclick=()=>{try{inputs=parseScenario($('scenario').value);$('import-error').textContent='';draw();}catch(e){$('import-error').textContent=e.message;}};
+$('export').onclick=()=>{$('json').textContent=JSON.stringify(validate(inputs),null,2);$('json').hidden=false;};
+$('csv').onclick=()=>{const blob=new Blob(['\ufeff'+toCSV(inputs)],{type:'text/csv;charset=utf-8'});const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='carbon-balance-results.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+draw();
+
+</script></body></html>
