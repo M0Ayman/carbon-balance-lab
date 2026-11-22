@@ -1,0 +1,9 @@
+{
+  "feed": 1000,
+  "capture": 0,
+  "conversion": 80,
+  "hydrogen": 120,
+  "hours": 8000,
+  "electricity": 0,
+  "grid": 0
+}
