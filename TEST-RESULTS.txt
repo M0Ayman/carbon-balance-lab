@@ -1,0 +1,116 @@
+TAP version 13
+# Subtest: demo capture and reaction values
+ok 1 - demo capture and reaction values
+  ---
+  duration_ms: 1.678391
+  type: 'test'
+  ...
+# Subtest: one kmol reaction
+ok 2 - one kmol reaction
+  ---
+  duration_ms: 0.264792
+  type: 'test'
+  ...
+# Subtest: hydrogen limiting
+ok 3 - hydrogen limiting
+  ---
+  duration_ms: 0.117606
+  type: 'test'
+  ...
+# Subtest: zero capture
+ok 4 - zero capture
+  ---
+  duration_ms: 0.096079
+  type: 'test'
+  ...
+# Subtest: zero feed
+ok 5 - zero feed
+  ---
+  duration_ms: 0.133946
+  type: 'test'
+  ...
+# Subtest: zero hydrogen
+ok 6 - zero hydrogen
+  ---
+  duration_ms: 0.100838
+  type: 'test'
+  ...
+# Subtest: zero conversion
+ok 7 - zero conversion
+  ---
+  duration_ms: 0.136938
+  type: 'test'
+  ...
+# Subtest: electricity and annual units
+ok 8 - electricity and annual units
+  ---
+  duration_ms: 0.088915
+  type: 'test'
+  ...
+# Subtest: zero annual hours does not change hourly flow
+ok 9 - zero annual hours does not change hourly flow
+  ---
+  duration_ms: 0.329099
+  type: 'test'
+  ...
+# Subtest: invalid input rejected
+ok 10 - invalid input rejected
+  ---
+  duration_ms: 0.515427
+  type: 'test'
+  ...
+# Subtest: bounds rejected
+ok 11 - bounds rejected
+  ---
+  duration_ms: 0.215277
+  type: 'test'
+  ...
+# Subtest: numeric strings accepted
+ok 12 - numeric strings accepted
+  ---
+  duration_ms: 0.067717
+  type: 'test'
+  ...
+# Subtest: all scenario fields required
+ok 13 - all scenario fields required
+  ---
+  duration_ms: 0.103588
+  type: 'test'
+  ...
+# Subtest: JSON errors rejected
+ok 14 - JSON errors rejected
+  ---
+  duration_ms: 0.109196
+  type: 'test'
+  ...
+# Subtest: JSON roundtrip and CSV units
+ok 15 - JSON roundtrip and CSV units
+  ---
+  duration_ms: 0.718759
+  type: 'test'
+  ...
+# Subtest: mass conservation across 1000 deterministic scenarios
+ok 16 - mass conservation across 1000 deterministic scenarios
+  ---
+  duration_ms: 5.569029
+  type: 'test'
+  ...
+1..16
+# tests 16
+# suites 0
+# pass 16
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 58.897148
+
+Browser smoke checks, 22 November 2026: PASS
+- Synthetic default and H2-limited output regression.
+- Zero capture, blank input rejection and language switching.
+- JSON export, valid import and invalid import.
+- Offline CSV download verified by reading the downloaded file.
+- No horizontal page overflow at 320, 390 and 1280 CSS pixels.
+- No JavaScript exceptions during the offline smoke checks.
+
+These tests cover the stated arithmetic and software behavior, not a validated process simulation or plant performance. No external dataset validation is claimed.
